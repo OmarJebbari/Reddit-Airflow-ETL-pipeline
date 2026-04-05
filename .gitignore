@@ -1,0 +1,19 @@
+# Ignore local data
+data/
+
+# Ignore config files with sensitive keys (AWS API keys, etc)
+*.conf
+*.env
+
+# Ignore python cache
+__pycache__/
+*.pyc
+
+# Virutal environments
+venv/
+.venv/
+env/
+
+# Airflow logs
+logs/
+airflow-webserver.pid
