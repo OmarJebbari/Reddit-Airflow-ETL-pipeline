@@ -148,8 +148,8 @@ Open your browser and navigate to:
 http://localhost:8080
 ```
 
-- **Default username:** airflow
-- **Default password:** airflow
+- **Default username:** admin  (try airflow if admin not working)
+- **Default password:** admin  (try airflow if admin not working)
 
 ### 5. Trigger the Pipeline
 
