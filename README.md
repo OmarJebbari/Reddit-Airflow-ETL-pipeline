@@ -14,7 +14,7 @@ This project demonstrates enterprise-grade data engineering practices by:
 - **Orchestrating** the entire workflow using Apache Airflow with daily execution schedules
 - **Containerizing** the application for local development and eventual cloud deployment
 
-**Current Status:** Local Docker-based pipeline with future AWS S3 integration planned.
+**Current Status:** Local Docker-based pipeline with future Azure Blob Storage integration planned.
 
 ---
 
@@ -42,9 +42,9 @@ graph TB
         DB["PostgreSQL<br/>Airflow Metadata"]
     end
     
-    subgraph Future["Future: AWS"]
-        S3["Amazon S3<br/>Data Lake"]
-        RDS["Amazon RDS<br/>Database"]
+    subgraph Future["Future: Azure"]
+        S3["Azure Blob Storage<br/>Data Lake"]
+        RDS["Azure SQL Database<br/>Database"]
     end
     
     Reddit --> A
@@ -218,6 +218,7 @@ Key configuration parameters:
 | `database` | port | 5432 | PostgreSQL port |
 | `file_paths` | output_path | `/opt/airflow/data/output` | CSV output directory |
 | `api_keys` | reddit_* | N/A | Placeholder (using web scraping, not OAuth) |
+| `azure` | azure_* | N/A | Azure credentials for future cloud deployment |
 | `etl_settings` | batch_size | 100 | Posts per extraction |
 | `etl_settings` | log_level | info | Logging verbosity |
 
@@ -387,11 +388,11 @@ docker-compose up -d
 
 ## 📈 Future Enhancements
 
-- [ ] **AWS S3 Integration** - Upload CSVs to data lake
-- [ ] **AWS RDS** - Store transformed data in relational database
+- [ ] **Azure Blob Storage Integration** - Upload CSVs to data lake
+- [ ] **Azure SQL Database** - Store transformed data in relational database
 - [ ] **Data Validation** - Great Expectations framework
-- [ ] **Advanced Analytics** - SQL transformations on RDS
-- [ ] **Monitoring & Alerts** - Sentry integration for error tracking
+- [ ] **Advanced Analytics** - SQL transformations on Azure SQL Database
+- [ ] **Monitoring & Alerts** - Azure Application Insights integration
 - [ ] **Multi-Subreddit Support** - Parallel extraction
 - [ ] **Incremental Loading** - Delta updates to reduce redundancy
 - [ ] **PRAW Integration** - Optional: Switch to official Reddit API wrapper
