@@ -465,8 +465,8 @@ Contributions are welcome! Please:
 
 For issues, questions, or suggestions:
 
-- **Open an Issue** on GitHub
-- **Email:** your.email@example.com
+- **Open an Issue** onjebbari GitHub
+- **Email:** jebbariomar1@gmail.com
 - **Discussions:** GitHub Discussions tab
 
 ---
