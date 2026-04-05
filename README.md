@@ -1,6 +1,6 @@
 # Reddit-Airflow-ETL-Pipeline
 
-A scalable, production-ready **Extract-Transform-Load (ETL) pipeline** that ingests Reddit data from the r/dataengineering subreddit using Apache Airflow orchestration, processes it with pandas, and outputs clean CSV files for analysis.
+A scalable, production-ready **Extract-Transform-Load (ETL) pipeline** that ingests Reddit data from the r/dataengineering subreddit via web scraping, orchestrates it with Apache Airflow, processes it with pandas, and outputs clean CSV files for analysis.
 
 ---
 
@@ -8,7 +8,7 @@ A scalable, production-ready **Extract-Transform-Load (ETL) pipeline** that inge
 
 This project demonstrates enterprise-grade data engineering practices by:
 
-- **Extracting** real-time data directly from Reddit's public API
+- **Extracting** real-time data directly from Reddit via web scraping (.json endpoint)
 - **Transforming** raw JSON data into structured, analysis-ready formats
 - **Loading** cleaned data into CSV files for downstream consumption
 - **Orchestrating** the entire workflow using Apache Airflow with daily execution schedules
@@ -217,7 +217,7 @@ Key configuration parameters:
 | `database` | host | postgres | PostgreSQL host for Airflow metadata |
 | `database` | port | 5432 | PostgreSQL port |
 | `file_paths` | output_path | `/opt/airflow/data/output` | CSV output directory |
-| `api_keys` | reddit_* | N/A | Placeholder for future OAuth |
+| `api_keys` | reddit_* | N/A | Placeholder (using web scraping, not OAuth) |
 | `etl_settings` | batch_size | 100 | Posts per extraction |
 | `etl_settings` | log_level | info | Logging verbosity |
 
@@ -394,7 +394,7 @@ docker-compose up -d
 - [ ] **Monitoring & Alerts** - Sentry integration for error tracking
 - [ ] **Multi-Subreddit Support** - Parallel extraction
 - [ ] **Incremental Loading** - Delta updates to reduce redundancy
-- [ ] **OAuth Authentication** - Official Reddit API instead of scraping
+- [ ] **PRAW Integration** - Optional: Switch to official Reddit API wrapper
 - [ ] **Containerized Testing** - Pytest in Docker
 - [ ] **CI/CD Pipeline** - GitHub Actions for automated testing
 
@@ -474,10 +474,12 @@ For issues, questions, or suggestions:
 ## 📚 References
 
 - [Apache Airflow Documentation](https://airflow.apache.org/docs/)
-- [Reddit API Documentation](https://www.reddit.com/dev/api/)
+- [Reddit JSON API Endpoint](https://www.reddit.com/dev/api#GET_top) - Web scraping endpoint
+- [PRAW Documentation](https://praw.readthedocs.io/) - Official Reddit API wrapper (future reference)
 - [Docker Documentation](https://docs.docker.com/)
 - [Pandas Documentation](https://pandas.pydata.org/docs/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Requests Library Documentation](https://requests.readthedocs.io/)
 
 ---
 
