@@ -443,7 +443,7 @@ This project is open source and available under the **MIT License**.
 
 **Omar Jebbari**  
 Data Engineer | ETL Specialist  
-[GitHub](https://github.com/OmarJebbari) | [LinkedIn](https://linkedin.com/in/your-profile)
+[GitHub](https://github.com/OmarJebbari) | [LinkedIn]([https://linkedin.com/in/your-profile](https://www.linkedin.com/in/omar-jebbari-00b30b269/?skipRedirect=true))
 
 ---
 
