@@ -14,7 +14,7 @@ This project demonstrates enterprise-grade data engineering practices by:
 - **Orchestrating** the entire workflow using Apache Airflow with daily execution schedules
 - **Containerizing** the application for local development and eventual cloud deployment
 
-**Current Status:** Local Docker-based pipeline with future Azure Blob Storage integration planned.
+**Current Status:** Local Docker-based pipeline with MinIO lakehouse, Great Expectations validation, dbt Gold models, Trino query layer, and Metabase BI.
 
 ---
 
@@ -93,6 +93,16 @@ sequenceDiagram
     Loader-->>DAG: Task Complete
     DAG-->>Scheduler: Log Status
 ```
+
+---
+
+## 🧱 Enterprise Features (Implemented)
+
+- **Data Quality:** Great Expectations validation on Bronze parquet before promotion
+- **Transformations:** dbt-core Gold models running via Airflow
+- **Query Layer:** Trino for SQL over MinIO parquet
+- **BI:** Metabase dashboards on top of Trino
+- **CI/CD:** GitHub Actions for linting and tests
 
 ---
 
@@ -342,10 +352,12 @@ docker-compose logs -f scheduler
 Services:
   ├── postgres          # Airflow metadata database
   ├── redis            # Message broker
+    ├── airflow-init      # DB init and admin user
   ├── webserver        # Airflow UI (port 8080)
   ├── scheduler        # DAG scheduler
-  ├── worker           # Task executor
-  └── flower           # Celery monitoring (optional)
+    ├── worker           # Task executor
+    ├── metabase         # BI UI (port 3000)
+    └── trino            # SQL query engine (port 8081)
 ```
 
 Start specific service:
@@ -390,14 +402,13 @@ docker-compose up -d
 
 - [ ] **Azure Blob Storage Integration** - Upload CSVs to data lake
 - [ ] **Azure SQL Database** - Store transformed data in relational database
-- [ ] **Data Validation** - Great Expectations framework
 - [ ] **Advanced Analytics** - SQL transformations on Azure SQL Database
 - [ ] **Monitoring & Alerts** - Azure Application Insights integration
 - [ ] **Multi-Subreddit Support** - Parallel extraction
 - [ ] **Incremental Loading** - Delta updates to reduce redundancy
 - [ ] **PRAW Integration** - Optional: Switch to official Reddit API wrapper
 - [ ] **Containerized Testing** - Pytest in Docker
-- [ ] **CI/CD Pipeline** - GitHub Actions for automated testing
+- [ ] **Secrets Management** - Vault or Docker secrets
 
 ---
 
