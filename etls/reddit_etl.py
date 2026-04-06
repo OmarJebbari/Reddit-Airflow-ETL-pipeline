@@ -2,7 +2,8 @@ import requests
 import pandas as pd
 import logging
 import sys
-import os 
+import os
+import s3fs
 
 def extract_reddit_data_scraping(subreddit, time_filter='day', limit=100, max_posts=100):
 
@@ -113,3 +114,26 @@ def load_data_to_csv(data: pd.DataFrame, file_path: str):
     # Now save the file
     data.to_csv(file_path, index=False)
     logging.info(f"Data saved successfully. Total rows exported: {len(data)}")
+
+
+def load_data_to_parquet_minio(data: pd.DataFrame, file_name: str) -> str:
+    endpoint = os.environ.get("MINIO_ENDPOINT")
+    access_key = os.environ.get("MINIO_ACCESS_KEY")
+    secret_key = os.environ.get("MINIO_SECRET_KEY")
+
+    if not endpoint or not access_key or not secret_key:
+        raise ValueError("Missing MINIO_ENDPOINT or MINIO_ACCESS_KEY or MINIO_SECRET_KEY")
+
+    bucket = os.environ.get("MINIO_BRONZE_BUCKET", "bronze")
+    prefix = os.environ.get("MINIO_BRONZE_PREFIX", "reddit")
+
+    fs = s3fs.S3FileSystem(
+        key=access_key,
+        secret=secret_key,
+        client_kwargs={"endpoint_url": endpoint},
+    )
+
+    parquet_path = f"s3://{bucket}/{prefix}/{file_name}.parquet"
+    data.to_parquet(parquet_path, index=False, filesystem=fs)
+    logging.info(f"Data saved to MinIO parquet: {parquet_path}")
+    return parquet_path
