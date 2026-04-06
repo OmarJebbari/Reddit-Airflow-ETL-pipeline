@@ -42,9 +42,10 @@ graph TB
         DB["PostgreSQL<br/>Airflow Metadata"]
     end
     
-    subgraph Future["Future: Azure"]
-        S3["Azure Blob Storage<br/>Data Lake"]
-        RDS["Azure SQL Database<br/>Database"]
+    subgraph Lakehouse["MinIO Lakehouse"]
+        BRONZE["Bronze<br/>Parquet"]
+        SILVER["Silver<br/>Parquet"]
+        GOLD["Gold<br/>Parquet"]
     end
     
     Reddit --> A
@@ -57,14 +58,15 @@ graph TB
     LOAD -->|CSV Files| CSV
     LOAD -->|Metadata| DB
     
-    CSV -.->|Future| S3
-    DB -.->|Future| RDS
+    LOAD -->|Bronze| BRONZE
+    BRONZE -->|Validation| SILVER
+    SILVER -->|dbt models| GOLD
     
     style Reddit fill:#FF4500
     style Airflow fill:#017CEE
     style Processing fill:#4CAF50
     style Storage fill:#FFC107
-    style Future fill:#9C27B0,opacity:0.6
+    style Lakehouse fill:#9C27B0,opacity:0.6
 ```
 
 ---
@@ -228,7 +230,7 @@ Key configuration parameters:
 | `database` | port | 5432 | PostgreSQL port |
 | `file_paths` | output_path | `/opt/airflow/data/output` | CSV output directory |
 | `api_keys` | reddit_* | N/A | Placeholder (using web scraping, not OAuth) |
-| `azure` | azure_* | N/A | Azure credentials for future cloud deployment |
+| `minio` | MINIO_* | N/A | MinIO credentials and bucket settings |
 | `etl_settings` | batch_size | 100 | Posts per extraction |
 | `etl_settings` | log_level | info | Logging verbosity |
 
@@ -443,7 +445,7 @@ This project is open source and available under the **MIT License**.
 
 **Omar Jebbari**  
 Data Engineer | ETL Specialist  
-[GitHub](https://github.com/OmarJebbari) | [LinkedIn](https://linkedin.com/in/your-profile)
+[GitHub](https://github.com/OmarJebbari) | [LinkedIn](https://www.linkedin.com/in/omar-jebbari-00b30b269/)
 
 ---
 
