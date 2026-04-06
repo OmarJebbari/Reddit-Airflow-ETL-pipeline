@@ -1,7 +1,8 @@
 from airflow import DAG
-from datetime import datetime 
+from datetime import datetime, timedelta
 import os
 import sys
+import logging
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 
@@ -11,10 +12,23 @@ from pipelines.reddit_pipeline import reddit_pipeline
 from etls.quality_checks import validate_bronze_parquet
 from etls.reddit_etl import load_latest_bronze_parquet_to_postgres
 
+
+def task_failure_callback(context):
+    task_instance = context.get("task_instance")
+    logging.error(
+        "Task failure | dag_id=%s task_id=%s run_id=%s ts=%s",
+        context.get("dag").dag_id if context.get("dag") else "unknown",
+        task_instance.task_id if task_instance else "unknown",
+        context.get("run_id", "unknown"),
+        context.get("ts", "unknown"),
+    )
+
 default_args = {
     'owner': 'Omar Jebbari',
     'start_date': datetime(2026, 4, 5),
-    
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+    'on_failure_callback': task_failure_callback,
 }
 
 file_postfix = datetime.now().strftime("%Y%m%d")
@@ -24,6 +38,7 @@ dag = DAG(
     default_args=default_args,
     schedule_interval='@daily',
     catchup=False,
+    dagrun_timeout=timedelta(hours=2),
     tags=['reddit', 'elt', 'pipeline']
 )
 

@@ -34,10 +34,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8 pytest
+          pip install flake8 pytest pytest-cov
 
       - name: Lint
         run: flake8 dags etls pipelines utils
 
       - name: Tests
-        run: pytest -q
+        run: pytest -q tests --cov=etls --cov=pipelines --cov-report=term-missing --cov-fail-under=60
