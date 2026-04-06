@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pipelines.reddit_pipeline import reddit_pipeline
 from etls.quality_checks import validate_bronze_parquet
+from etls.reddit_etl import load_latest_bronze_parquet_to_postgres
 
 default_args = {
     'owner': 'Omar Jebbari',
@@ -55,4 +56,13 @@ dbt_run = BashOperator(
     dag=dag,
 )
 
-extract >> validate_bronze >> dbt_run
+load_gold_to_postgres = PythonOperator(
+    task_id='load_gold_to_postgres',
+    python_callable=load_latest_bronze_parquet_to_postgres,
+    dag=dag,
+    op_kwargs={
+        'table_name': 'reddit_gold',
+    }
+)
+
+extract >> validate_bronze >> dbt_run >> load_gold_to_postgres

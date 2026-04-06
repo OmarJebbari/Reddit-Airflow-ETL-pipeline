@@ -4,6 +4,7 @@ import logging
 import sys
 import os
 import s3fs
+from sqlalchemy import create_engine
 
 def extract_reddit_data_scraping(subreddit, time_filter='day', limit=100, max_posts=100):
 
@@ -142,3 +143,39 @@ def load_data_to_parquet_minio(data: pd.DataFrame, file_name: str) -> str:
     data.to_parquet(parquet_path, index=False, filesystem=fs)
     logging.info(f"Data saved to MinIO parquet: {parquet_path}")
     return parquet_path
+
+
+def load_latest_bronze_parquet_to_postgres(table_name: str = "reddit_gold") -> str:
+    endpoint = os.environ.get("MINIO_ENDPOINT")
+    access_key = os.environ.get("MINIO_ACCESS_KEY")
+    secret_key = os.environ.get("MINIO_SECRET_KEY")
+
+    if not endpoint or not access_key or not secret_key:
+        raise ValueError("Missing MINIO_ENDPOINT or MINIO_ACCESS_KEY or MINIO_SECRET_KEY")
+
+    bucket = os.environ.get("MINIO_BRONZE_BUCKET", "bronze")
+    prefix = os.environ.get("MINIO_BRONZE_PREFIX", "reddit")
+
+    fs = s3fs.S3FileSystem(
+        key=access_key,
+        secret=secret_key,
+        client_kwargs={"endpoint_url": endpoint},
+    )
+
+    parquet_files = fs.glob(f"s3://{bucket}/{prefix}/*.parquet")
+    if not parquet_files:
+        raise FileNotFoundError(f"No parquet files found in s3://{bucket}/{prefix}")
+
+    latest_parquet = max(parquet_files)
+    logging.info(f"Loading latest bronze parquet: {latest_parquet}")
+
+    df = pd.read_parquet(latest_parquet, filesystem=fs)
+
+    engine = create_engine("postgresql+psycopg2://postgres:postgres@postgres:5432/airflow_reddit")
+    try:
+        df.to_sql(table_name, engine, if_exists="replace", index=False, method="multi", chunksize=5000)
+    finally:
+        engine.dispose()
+
+    logging.info(f"Loaded {len(df)} rows into Postgres table '{table_name}'")
+    return table_name
