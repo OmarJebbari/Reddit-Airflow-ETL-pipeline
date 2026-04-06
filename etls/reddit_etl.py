@@ -133,6 +133,11 @@ def load_data_to_parquet_minio(data: pd.DataFrame, file_name: str) -> str:
         client_kwargs={"endpoint_url": endpoint},
     )
 
+    # Ensure the target bucket exists before writing parquet.
+    if not fs.exists(bucket):
+        fs.mkdir(bucket)
+        logging.info(f"Created missing MinIO bucket: {bucket}")
+
     parquet_path = f"s3://{bucket}/{prefix}/{file_name}.parquet"
     data.to_parquet(parquet_path, index=False, filesystem=fs)
     logging.info(f"Data saved to MinIO parquet: {parquet_path}")
