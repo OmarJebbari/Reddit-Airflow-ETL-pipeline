@@ -5,7 +5,7 @@ data/
 .env
 .env.*
 !.env.example
-!airflow.env
+airflow.env
 config/*.secret.conf
 !config/config.conf
 
