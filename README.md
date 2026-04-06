@@ -20,7 +20,93 @@ This project demonstrates enterprise-grade data engineering practices by:
 
 ## 🏗️ Architecture
 
-![Enterprise Architecture](assets/linkedin/exports/01-architecture.png)
+```mermaid
+%%{init: {
+  "theme": "base",
+  "look": "handDrawn",
+  "themeVariables": {
+    "fontFamily": "Fira Code, Segoe UI, monospace",
+    "fontSize": "14px",
+    "darkMode": true,
+    "background": "#0D1117",
+    "primaryColor": "#1B263B",
+    "primaryTextColor": "#E6EDF3",
+    "primaryBorderColor": "#58A6FF",
+    "lineColor": "#79C0FF",
+    "secondaryColor": "#102A43",
+    "tertiaryColor": "#1A1F2E"
+  },
+  "flowchart": {
+    "curve": "catmullRom",
+    "htmlLabels": true
+  }
+}}%%
+flowchart LR
+    subgraph SRC[Signal Sources]
+        R1["Reddit JSON Endpoint"]
+        R2["Subreddits<br/>dataengineering, datascience, aws, azure, python"]
+        R1 --> R2
+    end
+
+    subgraph ORCH[Orchestration Mesh - Airflow]
+        SCH["Daily Scheduler"]
+        DAG["DAG: elt_reddit_pipeline"]
+        T1["reddit_extraction"]
+        T2["validate_bronze_parquet"]
+        T3["dbt_run_gold"]
+        T4["load_gold_to_postgres"]
+        SCH --> DAG --> T1 --> T2 --> T3 --> T4
+    end
+
+    subgraph PROC[Processing and Governance]
+        P1["Pagination + Normalization<br/>requests + pandas"]
+        P2["Data Quality Contract<br/>Great Expectations"]
+        P3["Analytical Modeling<br/>dbt Silver and Gold"]
+        P1 --> P2 --> P3
+    end
+
+    subgraph STORE[Lakehouse and Serving]
+        C1["CSV Snapshots"]
+        B1["MinIO Bronze"]
+        B2["MinIO Silver"]
+        B3["MinIO Gold"]
+        PG1["PostgreSQL reddit_gold"]
+        PG2["PostgreSQL Airflow Metadata"]
+        C1 --- B1 --> B2 --> B3
+        PG1 --- PG2
+    end
+
+    subgraph CONS[Consumption Layer]
+        TR["Trino Federated SQL"]
+        MB["Metabase Dashboards"]
+        TR --> MB
+    end
+
+    R2 -. "JSON Pull" .-> T1
+    T1 --> P1
+    P1 --> C1
+    P1 --> B1
+    T2 --> P2
+    T3 --> P3
+    P3 --> B2
+    P3 --> B3
+    T4 --> PG1
+    DAG --> PG2
+    B3 --> TR
+    PG1 --> MB
+
+    classDef src fill:#2B1A16,stroke:#FF9E64,stroke-width:2px,color:#FFD9C0;
+    classDef orch fill:#132236,stroke:#58A6FF,stroke-width:2px,color:#D7ECFF;
+    classDef proc fill:#13291E,stroke:#7EE787,stroke-width:2px,color:#D9FFE0;
+    classDef store fill:#231A34,stroke:#D2A8FF,stroke-width:2px,color:#F1E4FF;
+    classDef cons fill:#2D260F,stroke:#E3B341,stroke-width:2px,color:#FFF0C2;
+
+    class R1,R2 src;
+    class SCH,DAG,T1,T2,T3,T4 orch;
+    class P1,P2,P3 proc;
+    class C1,B1,B2,B3,PG1,PG2 store;
+    class TR,MB cons;
+```
 
 This architecture shows the full lakehouse path from Reddit scraping to Gold serving in PostgreSQL/Metabase.
 
@@ -33,7 +119,59 @@ Visual analysis:
 
 ## 🔄 Data Flow
 
-![Pipeline Runtime Sequence](assets/linkedin/exports/02-runtime-sequence.png)
+```mermaid
+%%{init: {
+  "theme": "base",
+  "look": "handDrawn",
+  "themeVariables": {
+    "fontFamily": "Fira Code, Segoe UI, monospace",
+    "fontSize": "13px",
+    "darkMode": true,
+    "background": "#0D1117",
+    "lineColor": "#79C0FF",
+    "signalColor": "#79C0FF",
+    "signalTextColor": "#E6EDF3",
+    "actorBorder": "#58A6FF",
+    "actorBkg": "#132236",
+    "actorTextColor": "#E6EDF3",
+    "labelBoxBkgColor": "#1A2638",
+    "labelBoxBorderColor": "#58A6FF",
+    "loopTextColor": "#E3B341"
+  },
+  "sequence": {
+    "mirrorActors": false,
+    "showSequenceNumbers": true
+  }
+}}%%
+sequenceDiagram
+    autonumber
+    participant S as Airflow Scheduler
+    participant D as DAG Controller
+    participant X as Extraction Worker
+    participant R as Reddit Endpoint
+    participant B as Bronze Publisher
+    participant Q as Quality Gate
+    participant T as dbt Runtime
+    participant P as Postgres Sink
+    participant O as Observability
+
+    S->>D: Trigger daily production run
+    D->>X: Launch reddit_extraction
+    loop Each subreddit and page cursor
+        X->>R: GET top.json with t=year and after token
+        R-->>X: Return JSON batch
+    end
+    X->>B: Emit normalized dataframe
+    B->>B: Persist CSV and Bronze parquet
+    D->>Q: Launch validate_bronze_parquet
+    Q-->>D: Contract checks passed
+    D->>T: Launch dbt_run_gold
+    T->>T: Build silver and gold marts
+    D->>P: Launch load_gold_to_postgres
+    P->>P: Refresh reddit_gold table
+    D->>O: Publish logs, SLA markers, metrics
+    O-->>S: Run complete and auditable
+```
 
 The runtime sequence highlights scheduling, extraction, quality checks, dbt modeling, load, and observability.
 
@@ -46,7 +184,69 @@ Visual analysis:
 
 ## 🧭 Operating Model
 
-![Data Product Operating Model](assets/linkedin/exports/03-operating-model.png)
+```mermaid
+%%{init: {
+  "theme": "base",
+  "look": "handDrawn",
+  "themeVariables": {
+    "fontFamily": "Fira Code, Segoe UI, monospace",
+    "fontSize": "14px",
+    "darkMode": true,
+    "background": "#0D1117",
+    "primaryColor": "#132236",
+    "primaryTextColor": "#E6EDF3",
+    "primaryBorderColor": "#58A6FF",
+    "lineColor": "#79C0FF"
+  },
+  "flowchart": {
+    "curve": "natural"
+  }
+}}%%
+flowchart TB
+    subgraph ENG[Engineering Controls]
+      C1["Containerized Runtime<br/>Docker Compose"]
+      C2["Workflow Orchestration<br/>Airflow Celery Executor"]
+      C3["Quality and Transform Contracts<br/>Great Expectations and dbt"]
+      C1 --> C2 --> C3
+    end
+
+    subgraph PROD[Data Product]
+      D1["Raw Ingestion<br/>Scraped Reddit Signals"]
+      D2["Bronze to Gold Progression<br/>MinIO Lakehouse"]
+      D3["Serving Model<br/>Postgres reddit_gold"]
+      D1 --> D2 --> D3
+    end
+
+    subgraph CONS[Business Consumption]
+      B1["Self Service SQL<br/>Trino"]
+      B2["Executive Insight Layer<br/>Metabase"]
+      B1 --> B2
+    end
+
+    subgraph KPI[Outcome Metrics]
+      K1["Freshness: Daily SLA"]
+      K2["Quality: Validation Gate"]
+      K3["Trust: Reproducible Runs"]
+      K4["Value: Decision Ready Data"]
+    end
+
+    C3 --> D1
+    D3 --> B1
+    C2 --> K1
+    C3 --> K2
+    C1 --> K3
+    B2 --> K4
+
+    classDef controls fill:#132236,stroke:#58A6FF,stroke-width:2px,color:#D7ECFF;
+    classDef product fill:#13291E,stroke:#7EE787,stroke-width:2px,color:#D9FFE0;
+    classDef consume fill:#2D260F,stroke:#E3B341,stroke-width:2px,color:#FFF0C2;
+    classDef kpi fill:#231A34,stroke:#D2A8FF,stroke-width:2px,color:#F1E4FF;
+
+    class C1,C2,C3 controls;
+    class D1,D2,D3 product;
+    class B1,B2 consume;
+    class K1,K2,K3,K4 kpi;
+```
 
 This operating view maps engineering controls to business outcomes (freshness, trust, and decision readiness).
 
