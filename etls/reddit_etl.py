@@ -4,45 +4,67 @@ import logging
 import sys
 import os 
 
-def extract_reddit_data_scraping(subreddit, time_filter='day', limit=100):
+def extract_reddit_data_scraping(subreddit, time_filter='day', limit=100, max_posts=100):
 
-    url = f"https://www.reddit.com/r/{subreddit}/top.json?t={time_filter}&limit={limit}"
+    url = "https://www.reddit.com/r/{subreddit}/top.json"
     
     # Reddit-approved format: <platform>:<app ID>:<version> (by /u/<username>)
     headers = {'User-Agent': 'python:airflow_reddit_etl:v1.0 (by /u/your_reddit_username)'}
     
-    logging.info(f"Starting extraction for subreddit: r/{subreddit} (limit: {limit}, time_filter: {time_filter})")
+    logging.info(
+        f"Starting extraction for subreddit: r/{subreddit} "
+        f"(limit: {limit}, max_posts: {max_posts}, time_filter: {time_filter})"
+    )
     
     # ... keep the rest of your try/except and parsing logic exactly the same! ...
     
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to fetch data from Reddit: {e}")
-        raise
-    
-    data = response.json()
-    posts = data.get('data', {}).get('children', [])
-    
     extracted_data = []
-    for post in posts:
-        post_data = post.get('data', {})
-        extracted_data.append({
-            'id': post_data.get('id'),
-            'title': post_data.get('title'),
-            'text': post_data.get('selftext'),        
-            'score': post_data.get('score'),
-            'num_comments': post_data.get('num_comments'),
-            'author': post_data.get('author'), 
-            'created_utc': post_data.get('created_utc'),
-            'url': post_data.get('url'),
-            'upvote_ratio': post_data.get('upvote_ratio'), 
-            'over_18': post_data.get('over_18'),
-            'edited': post_data.get('edited'),        
-            'spoiler': post_data.get('spoiler'),      
-            'stickied': post_data.get('stickied')     
-        })
+    after = None
+    page_size = min(100, max_posts)
+
+    while len(extracted_data) < max_posts:
+        params = {
+            "t": time_filter,
+            "limit": min(page_size, max_posts - len(extracted_data)),
+        }
+        if after:
+            params["after"] = after
+
+        try:
+            response = requests.get(url.format(subreddit=subreddit), headers=headers, params=params)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to fetch data from Reddit: {e}")
+            raise
+
+        data = response.json()
+        posts = data.get('data', {}).get('children', [])
+        after = data.get('data', {}).get('after')
+
+        if not posts:
+            break
+
+        for post in posts:
+            post_data = post.get('data', {})
+            extracted_data.append({
+                'id': post_data.get('id'),
+                'title': post_data.get('title'),
+                'text': post_data.get('selftext'),
+                'score': post_data.get('score'),
+                'num_comments': post_data.get('num_comments'),
+                'author': post_data.get('author'),
+                'created_utc': post_data.get('created_utc'),
+                'url': post_data.get('url'),
+                'upvote_ratio': post_data.get('upvote_ratio'),
+                'over_18': post_data.get('over_18'),
+                'edited': post_data.get('edited'),
+                'spoiler': post_data.get('spoiler'),
+                'stickied': post_data.get('stickied'),
+                'subreddit': subreddit,
+            })
+
+        if not after:
+            break
         
     logging.info(f"Successfully extracted {len(extracted_data)} posts from r/{subreddit}.")
     return extracted_data

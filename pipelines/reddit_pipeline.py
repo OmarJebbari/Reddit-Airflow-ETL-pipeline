@@ -2,13 +2,14 @@ import logging
 from etls.reddit_etl import extract_reddit_data_scraping, transform_reddit_data, load_data_to_csv
 from utils.constants import OUTPUT_PATH
 
-def reddit_pipeline(file_name: str, subreddit: str, time_filter='day', limit=100):
-    logging.info(f"Starting Reddit Pipeline for subreddit: {subreddit}")
-    
-    # Extraction (Scraping)
-    raw_data = extract_reddit_data_scraping(subreddit, time_filter, limit)
-    
-    # Transformation
+def reddit_pipeline(file_name: str, subreddit, time_filter='day', limit=100, max_posts=100):
+    subreddits = subreddit if isinstance(subreddit, list) else [subreddit]
+    logging.info(f"Starting Reddit Pipeline for subreddits: {subreddits}")
+
+    raw_data = []
+    for sub in subreddits:
+        raw_data.extend(extract_reddit_data_scraping(sub, time_filter, limit, max_posts))
+
     df = transform_reddit_data(raw_data)
     
     # Loading to CSV

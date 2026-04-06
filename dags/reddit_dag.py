@@ -3,10 +3,12 @@ from datetime import datetime
 import os
 import sys
 from airflow.operators.python import PythonOperator
+from airflow.operators.bash import BashOperator
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pipelines.reddit_pipeline import reddit_pipeline
+from etls.quality_checks import validate_bronze_parquet
 
 default_args = {
     'owner': 'Omar Jebbari',
@@ -31,8 +33,26 @@ extract = PythonOperator(
     dag=dag,
     op_kwargs={
         'file_name': f'reddit_{file_postfix}',
-        'subreddit': 'dataengineering',
-        'time_filter': 'day',
+        'subreddit': ['dataengineering', 'datascience', 'aws', 'azure'],
+        'time_filter': 'year',
         'limit': 100,
+        'max_posts': 500,
     }
 )
+
+validate_bronze = PythonOperator(
+    task_id='validate_bronze_parquet',
+    python_callable=validate_bronze_parquet,
+    dag=dag,
+    op_kwargs={
+        'file_name': f'reddit_{file_postfix}',
+    }
+)
+
+dbt_run = BashOperator(
+    task_id='dbt_run_gold',
+    bash_command='dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt',
+    dag=dag,
+)
+
+extract >> validate_bronze >> dbt_run
