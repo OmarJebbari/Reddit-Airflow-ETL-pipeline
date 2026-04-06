@@ -12,6 +12,7 @@ x-airflow-common:
     - ./config:/opt/airflow/config
     - ./dags:/opt/airflow/dags
     - ./data:/opt/airflow/data
+    - ./dbt:/opt/airflow/dbt
     - ./etls:/opt/airflow/etls
     - ./logs:/opt/airflow/logs
     - ./pipelines:/opt/airflow/pipelines
@@ -23,6 +24,7 @@ x-airflow-common:
   depends_on:
     - postgres
     - redis
+    - minio
 
 services:
   postgres:
@@ -50,12 +52,32 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - ./data/minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
   airflow-init:
     <<: *airflow-common
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     command: >
       bash -c "airflow db init && airflow db upgrade && airflow users create --username admin --firstname admin --lastname admin --role Admin --email airflow@airflow.com --password admin"
@@ -75,3 +97,30 @@ services:
   airflow-worker:
     <<: *airflow-common
     command: celery worker
+
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: postgres
+      MB_DB_PASS: postgres
+      MB_DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  trino:
+    image: trinodb/trino:latest
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./trino:/etc/trino
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
