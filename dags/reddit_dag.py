@@ -33,10 +33,10 @@ extract = PythonOperator(
     dag=dag,
     op_kwargs={
         'file_name': f'reddit_{file_postfix}',
-        'subreddit': ['dataengineering', 'datascience', 'aws', 'azure'],
+        'subreddit': ['dataengineering', 'datascience', 'aws', 'azure', 'python'],
         'time_filter': 'year',
         'limit': 100,
-        'max_posts': 500,
+        'max_posts': 1000,
     }
 )
 
