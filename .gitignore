@@ -1,18 +1,41 @@
 # Ignore local data
 data/
 
-# Ignore config files with sensitive keys (AWS API keys, etc)
-*.conf
-*.env
+# Ignore config files with sensitive keys
+.env
+.env.*
+!.env.example
+!airflow.env
+config/*.secret.conf
+!config/config.conf
 
 # Ignore python cache
 __pycache__/
 *.pyc
 
-# Virutal environments
+# Virtual environments
 venv/
 .venv/
 env/
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# dbt artifacts
+dbt/target/
+dbt/logs/
+*.duckdb
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
 
 # Airflow logs
 logs/
