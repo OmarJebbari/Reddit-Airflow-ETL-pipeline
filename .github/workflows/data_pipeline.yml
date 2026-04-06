@@ -37,7 +37,7 @@ jobs:
           pip install flake8 pytest pytest-cov
 
       - name: Lint
-        run: flake8 dags etls pipelines utils
+        run: flake8 dags etls pipelines utils --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Tests
         run: pytest -q tests --cov=etls --cov=pipelines --cov-report=term-missing --cov-fail-under=60
