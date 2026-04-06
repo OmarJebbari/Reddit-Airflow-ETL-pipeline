@@ -28,18 +28,22 @@ graph TB
     
     subgraph Airflow["Apache Airflow Orchestration"]
         DAG["DAG: elt_reddit_pipeline"]
-        TASK["Task: reddit_extraction<br/>(Daily @ UTC)"]
+        TASK["Tasks: extract -> validate -> dbt -> postgres<br/>(Daily @ UTC)"]
     end
     
     subgraph Processing["ETL Pipeline"]
-        EXTRACT["Extract<br/>scraping"]
+        EXTRACT["Extract<br/>scraping + pagination"]
         TRANSFORM["Transform<br/>pandas"]
-        LOAD["Load<br/>CSV"]
+        LOAD["Load<br/>CSV + Bronze Parquet"]
+        VALIDATE["Validate<br/>Great Expectations"]
+        DBT["Transform<br/>dbt models"]
+        PGLOAD["Load<br/>Postgres reddit_gold"]
     end
     
     subgraph Storage["Data Storage"]
         CSV["CSV Output<br/>/data/output/"]
         DB["PostgreSQL<br/>Airflow Metadata"]
+        GOLDDB["PostgreSQL<br/>reddit_gold"]
     end
     
     subgraph Lakehouse["MinIO Lakehouse"]
@@ -59,8 +63,12 @@ graph TB
     LOAD -->|Metadata| DB
     
     LOAD -->|Bronze| BRONZE
-    BRONZE -->|Validation| SILVER
-    SILVER -->|dbt models| GOLD
+    BRONZE -->|Validation| VALIDATE
+    VALIDATE -->|Pass| SILVER
+    SILVER -->|dbt models| DBT
+    DBT -->|Gold datasets| GOLD
+    DBT -->|PythonOperator| PGLOAD
+    PGLOAD -->|replace| GOLDDB
     
     style Reddit fill:#FF4500
     style Airflow fill:#017CEE
@@ -80,8 +88,10 @@ sequenceDiagram
     participant Extractor as Reddit Extractor
     participant Reddit as Reddit API
     participant Transformer as Data Transformer
-    participant Loader as CSV Loader
-    participant FileSystem as File System
+    participant Loader as Bronze Loader
+    participant Validator as GE Validator
+    participant Dbt as dbt Runner
+    participant PG as Postgres Loader
     
     Scheduler->>DAG: Trigger Daily (UTC)
     DAG->>Extractor: Execute Task
@@ -90,9 +100,11 @@ sequenceDiagram
     Extractor->>Transformer: Pass Raw Data
     Transformer->>Transformer: Parse & Normalize
     Transformer->>Loader: Return DataFrame
-    Loader->>FileSystem: Write CSV
-    FileSystem-->>Loader: Confirm Write
-    Loader-->>DAG: Task Complete
+    Loader->>Loader: Write CSV + Bronze Parquet
+    Loader->>Validator: Validate Bronze data
+    Validator->>Dbt: Trigger Silver/Gold models
+    Dbt->>PG: Load latest parquet to reddit_gold (replace)
+    PG-->>DAG: Task Complete
     DAG-->>Scheduler: Log Status
 ```
 
@@ -102,6 +114,7 @@ sequenceDiagram
 
 - **Data Quality:** Great Expectations validation on Bronze parquet before promotion
 - **Transformations:** dbt-core Gold models running via Airflow
+- **Serving Layer:** Final Airflow task refreshes `reddit_gold` in PostgreSQL for BI tools
 - **Query Layer:** Trino for SQL over MinIO parquet
 - **BI:** Metabase dashboards on top of Trino
 - **CI/CD:** GitHub Actions for linting and tests
@@ -133,10 +146,13 @@ cd Reddit-Airflow-ETL-pipeline
 Create or verify the `airflow.env` file with your credentials:
 
 ```bash
-AIRFLOW__CORE__EXECUTOR=LocalExecutor
-AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://postgres:postgres@postgres:5432/airflow_reddit
+AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres:5432/airflow_reddit
 AIRFLOW__CORE__LOAD_EXAMPLES=False
 AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False
+MINIO_ENDPOINT=http://minio:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
 ```
 
 ### 3. Build and Start Services
@@ -345,18 +361,30 @@ docker-compose logs -f scheduler
 | Start Date | 2026-04-05 |
 | Catchup | Disabled |
 | Tags | reddit, elt, pipeline |
-| Tasks | 3 (reddit_extraction, validate_bronze_parquet, dbt_run_gold) |
+| Tasks | 4 (reddit_extraction, validate_bronze_parquet, dbt_run_gold, load_gold_to_postgres) |
 | Timeout | Default (no limit) |
 
 ### Task Parameters
 
 **reddit_extraction:**
 - **Operator:** PythonOperator
-- **Subreddit:** dataengineering, datascience, aws, azure
+- **Subreddit:** dataengineering, datascience, aws, azure, python
 - **Time Filter:** year (top posts from last year)
 - **Limit:** 100 per request
-- **Max Posts:** 500 per subreddit
-- **File Format:** `reddit_YYYYMMDD.csv` + MinIO Bronze parquet
+- **Max Posts:** 1000 per subreddit
+- **File Format:** `reddit_YYYYMMDD.csv` + MinIO Bronze parquet + Postgres `reddit_gold`
+
+**validate_bronze_parquet:**
+- **Operator:** PythonOperator
+- **Purpose:** Apply data quality checks before downstream models
+
+**dbt_run_gold:**
+- **Operator:** BashOperator
+- **Purpose:** Build Silver and Gold dbt models
+
+**load_gold_to_postgres:**
+- **Operator:** PythonOperator
+- **Purpose:** Load latest Bronze parquet into PostgreSQL table `reddit_gold` with replace strategy
 
 ---
 
@@ -367,10 +395,10 @@ Services:
   ├── postgres          # Airflow metadata database
   ├── redis            # Message broker
     ├── minio            # Lakehouse storage (ports 9000/9001)
-    ├── airflow-init      # DB init and admin user
-  ├── webserver        # Airflow UI (port 8080)
-  ├── scheduler        # DAG scheduler
-    ├── worker           # Task executor
+    ├── airflow-init     # DB init and admin user
+    ├── airflow-webserver # Airflow UI (port 8080)
+    ├── airflow-scheduler # DAG scheduler
+    ├── airflow-worker   # Task executor
     ├── metabase         # BI UI (port 3000)
     └── trino            # SQL query engine (port 8081)
 ```
@@ -378,7 +406,7 @@ Services:
 Start specific service:
 
 ```bash
-docker-compose up -d postgres redis
+docker-compose up -d postgres redis minio airflow-webserver airflow-scheduler airflow-worker metabase trino
 ```
 
 ---
