@@ -20,93 +20,52 @@ This project demonstrates enterprise-grade data engineering practices by:
 
 ## 🏗️ Architecture
 
-```mermaid
-graph TB
-    subgraph Reddit["Reddit API"]
-        A["r/dataengineering<br/>Top Posts"]
-    end
-    
-    subgraph Airflow["Apache Airflow Orchestration"]
-        DAG["DAG: elt_reddit_pipeline"]
-        TASK["Tasks: extract -> validate -> dbt -> postgres<br/>(Daily @ UTC)"]
-    end
-    
-    subgraph Processing["ETL Pipeline"]
-        EXTRACT["Extract<br/>scraping + pagination"]
-        TRANSFORM["Transform<br/>pandas"]
-        LOAD["Load<br/>CSV + Bronze Parquet"]
-        VALIDATE["Validate<br/>Great Expectations"]
-        DBT["Transform<br/>dbt models"]
-        PGLOAD["Load<br/>Postgres reddit_gold"]
-    end
-    
-    subgraph Storage["Data Storage"]
-        CSV["CSV Output<br/>/data/output/"]
-        DB["PostgreSQL<br/>Airflow Metadata"]
-        GOLDDB["PostgreSQL<br/>reddit_gold"]
-    end
-    
-    subgraph Lakehouse["MinIO Lakehouse"]
-        BRONZE["Bronze<br/>Parquet"]
-        SILVER["Silver<br/>Parquet"]
-        GOLD["Gold<br/>Parquet"]
-    end
-    
-    Reddit --> A
-    A -->|HTTP Requests| TASK
-    Airflow --> DAG
-    DAG --> TASK
-    TASK -->|PythonOperator| EXTRACT
-    EXTRACT -->|Raw Data| TRANSFORM
-    TRANSFORM -->|Structured Data| LOAD
-    LOAD -->|CSV Files| CSV
-    LOAD -->|Metadata| DB
-    
-    LOAD -->|Bronze| BRONZE
-    BRONZE -->|Validation| VALIDATE
-    VALIDATE -->|Pass| SILVER
-    SILVER -->|dbt models| DBT
-    DBT -->|Gold datasets| GOLD
-    DBT -->|PythonOperator| PGLOAD
-    PGLOAD -->|replace| GOLDDB
-    
-    style Reddit fill:#FF4500
-    style Airflow fill:#017CEE
-    style Processing fill:#4CAF50
-    style Storage fill:#FFC107
-    style Lakehouse fill:#9C27B0,opacity:0.6
-```
+![Enterprise Architecture](assets/linkedin/exports/01-architecture.png)
+
+This architecture shows the full lakehouse path from Reddit scraping to Gold serving in PostgreSQL/Metabase.
+
+Visual analysis:
+- Layered design: source ingestion, orchestration, quality/modeling, storage, and BI consumption.
+- Clear control points: validation (`validate_bronze_parquet`) and model build (`dbt_run_gold`) are explicit gates.
+- Serving strategy: PostgreSQL `reddit_gold` supports dashboard consumption with stable downstream semantics.
 
 ---
 
 ## 🔄 Data Flow
 
-```mermaid
-sequenceDiagram
-    participant Scheduler as Airflow Scheduler
-    participant DAG as DAG Dispatcher
-    participant Extractor as Reddit Extractor
-    participant Reddit as Reddit API
-    participant Transformer as Data Transformer
-    participant Loader as Bronze Loader
-    participant Validator as GE Validator
-    participant Dbt as dbt Runner
-    participant PG as Postgres Loader
-    
-    Scheduler->>DAG: Trigger Daily (UTC)
-    DAG->>Extractor: Execute Task
-    Extractor->>Reddit: GET /r/{subreddit}/top.json (paginated)
-    Reddit-->>Extractor: JSON Response (up to max_posts)
-    Extractor->>Transformer: Pass Raw Data
-    Transformer->>Transformer: Parse & Normalize
-    Transformer->>Loader: Return DataFrame
-    Loader->>Loader: Write CSV + Bronze Parquet
-    Loader->>Validator: Validate Bronze data
-    Validator->>Dbt: Trigger Silver/Gold models
-    Dbt->>PG: Load latest parquet to reddit_gold (replace)
-    PG-->>DAG: Task Complete
-    DAG-->>Scheduler: Log Status
-```
+![Pipeline Runtime Sequence](assets/linkedin/exports/02-runtime-sequence.png)
+
+The runtime sequence highlights scheduling, extraction, quality checks, dbt modeling, load, and observability.
+
+Visual analysis:
+- End-to-end run ordering is explicit and production-friendly.
+- Pagination loop reflects realistic Reddit extraction behavior.
+- Observability step captures operational traceability at run completion.
+
+---
+
+## 🧭 Operating Model
+
+![Data Product Operating Model](assets/linkedin/exports/03-operating-model.png)
+
+This operating view maps engineering controls to business outcomes (freshness, trust, and decision readiness).
+
+Visual analysis:
+- Connects platform controls (Airflow, quality contracts, container runtime) to business KPI outcomes.
+- Frames the pipeline as a data product, not just an ETL script.
+
+---
+
+## 🖼️ Runtime Evidence (From Exports)
+
+![Airflow DAG Success Graph](assets/linkedin/exports/1.png)
+
+This screenshot confirms the production DAG path and successful run states across all four tasks:
+`reddit_extraction -> validate_bronze_parquet -> dbt_run_gold -> load_gold_to_postgres`.
+
+![MinIO Bronze Parquet Object](assets/linkedin/exports/2.png)
+
+This screenshot confirms Bronze lakehouse persistence in MinIO (`bronze/reddit/reddit_*.parquet`), matching the documented storage architecture.
 
 ---
 
@@ -225,6 +184,9 @@ Reddit-Airflow-ETL-Pipeline/
 │   └── scheduler/                 # Scheduler logs
 ├── plugins/                       # Airflow custom plugins (expandable)
 ├── tests/                         # Unit & integration tests
+├── assets/
+│   └── linkedin/
+│       └── exports/               # LinkedIn-ready diagrams and runtime screenshots
 ├── Dockerfile                     # Custom Airflow image
 ├── docker-compose.yml             # Service orchestration
 ├── airflow.env                    # Environment variables
