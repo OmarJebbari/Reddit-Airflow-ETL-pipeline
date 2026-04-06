@@ -1,6 +1,6 @@
 # Reddit-Airflow-ETL-Pipeline
 
-A scalable, production-ready **Extract-Transform-Load (ETL) pipeline** that ingests Reddit data from the r/dataengineering subreddit via web scraping, orchestrates it with Apache Airflow, processes it with pandas, and outputs clean CSV files for analysis.
+A scalable, production-ready **Extract-Transform-Load (ETL) pipeline** that ingests Reddit data from multiple subreddits via web scraping, orchestrates it with Apache Airflow, processes it with pandas, and writes Bronze parquet to a MinIO lakehouse while also exporting CSV snapshots.
 
 ---
 
@@ -8,11 +8,11 @@ A scalable, production-ready **Extract-Transform-Load (ETL) pipeline** that inge
 
 This project demonstrates enterprise-grade data engineering practices by:
 
-- **Extracting** real-time data directly from Reddit via web scraping (.json endpoint)
+- **Extracting** real-time data directly from Reddit via web scraping (.json endpoint) with pagination
 - **Transforming** raw JSON data into structured, analysis-ready formats
-- **Loading** cleaned data into CSV files for downstream consumption
+- **Loading** Bronze parquet to MinIO and CSV snapshots for local inspection
 - **Orchestrating** the entire workflow using Apache Airflow with daily execution schedules
-- **Containerizing** the application for local development and eventual cloud deployment
+- **Containerizing** the application for local development with a lakehouse stack
 
 **Current Status:** Local Docker-based pipeline with MinIO lakehouse, Great Expectations validation, dbt Gold models, Trino query layer, and Metabase BI.
 
@@ -85,8 +85,8 @@ sequenceDiagram
     
     Scheduler->>DAG: Trigger Daily (UTC)
     DAG->>Extractor: Execute Task
-    Extractor->>Reddit: GET /r/dataengineering/top.json
-    Reddit-->>Extractor: JSON Response (100 posts)
+    Extractor->>Reddit: GET /r/{subreddit}/top.json (paginated)
+    Reddit-->>Extractor: JSON Response (up to max_posts)
     Extractor->>Transformer: Pass Raw Data
     Transformer->>Transformer: Parse & Normalize
     Transformer->>Loader: Return DataFrame
@@ -115,7 +115,7 @@ Before you begin, ensure you have:
 - **Docker & Docker Compose** (v20.10+) - [Install](https://docs.docker.com/get-docker/)
 - **Python 3.9+** (for local development)
 - **Git** - [Install](https://git-scm.com/)
-- **Reddit API Access** (see Configuration section)
+- **MinIO credentials** (see Configuration section)
 
 ---
 
@@ -237,9 +237,14 @@ Key configuration parameters:
 ### Environment Variables
 
 ```bash
-AIRFLOW__CORE__EXECUTOR=LocalExecutor
-AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql://postgres:postgres@postgres:5432/airflow_reddit
+AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres:5432/airflow_reddit
 AIRFLOW__CORE__LOAD_EXAMPLES=False
+MINIO_ENDPOINT=http://minio:9000
+MINIO_ACCESS_KEY=YOUR_MINIO_ACCESS_KEY
+MINIO_SECRET_KEY=YOUR_MINIO_SECRET_KEY
+MINIO_BRONZE_BUCKET=bronze
+MINIO_BRONZE_PREFIX=reddit
 ```
 
 ---
@@ -262,7 +267,8 @@ The extracted and transformed data includes:
     'over_18': bool,              # NSFW flag
     'edited': bool,               # Edit flag
     'spoiler': bool,              # Spoiler flag
-    'stickied': bool              # Stickied flag
+    'stickied': bool,             # Stickied flag
+    'subreddit': str              # Source subreddit
 }
 ```
 
@@ -318,6 +324,11 @@ docker-compose logs -f scheduler
 | **Pandas** | Latest | Data transformation & cleaning |
 | **PostgreSQL** | 12 | Airflow metadata database |
 | **Redis** | Latest | Message broker & caching |
+| **MinIO** | Latest | Object storage for lakehouse |
+| **Great Expectations** | Latest | Data quality validation |
+| **dbt-core** | Latest | Transformations (Silver to Gold) |
+| **Trino** | Latest | SQL query engine on MinIO |
+| **Metabase** | Latest | BI dashboards |
 | **Docker** | 20.10+ | Containerization |
 | **Requests** | Latest | HTTP library for API calls |
 
@@ -334,17 +345,18 @@ docker-compose logs -f scheduler
 | Start Date | 2026-04-05 |
 | Catchup | Disabled |
 | Tags | reddit, elt, pipeline |
-| Tasks | 1 (reddit_extraction) |
+| Tasks | 3 (reddit_extraction, validate_bronze_parquet, dbt_run_gold) |
 | Timeout | Default (no limit) |
 
 ### Task Parameters
 
 **reddit_extraction:**
 - **Operator:** PythonOperator
-- **Subreddit:** dataengineering
-- **Time Filter:** day (top posts from last 24 hours)
-- **Limit:** 100 posts
-- **File Format:** `reddit_YYYYMMDD.csv`
+- **Subreddit:** dataengineering, datascience, aws, azure
+- **Time Filter:** year (top posts from last year)
+- **Limit:** 100 per request
+- **Max Posts:** 500 per subreddit
+- **File Format:** `reddit_YYYYMMDD.csv` + MinIO Bronze parquet
 
 ---
 
@@ -354,6 +366,7 @@ docker-compose logs -f scheduler
 Services:
   ├── postgres          # Airflow metadata database
   ├── redis            # Message broker
+    ├── minio            # Lakehouse storage (ports 9000/9001)
     ├── airflow-init      # DB init and admin user
   ├── webserver        # Airflow UI (port 8080)
   ├── scheduler        # DAG scheduler
