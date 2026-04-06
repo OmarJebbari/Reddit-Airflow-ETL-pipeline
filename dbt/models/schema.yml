@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: silver_reddit_cleaned
+    description: "Silver curated Reddit posts from Bronze parquet"
+    columns:
+      - name: id
+        tests:
+          - not_null
+          - unique
+      - name: created_at
+        tests:
+          - not_null
+
+  - name: gold_author_stats
+    columns:
+      - name: author
+        tests:
+          - not_null
+
+  - name: gold_subreddit_engagement
+    columns:
+      - name: post_date
+        tests:
+          - not_null
