@@ -4,14 +4,52 @@ import logging
 import sys
 import os
 import s3fs
+import time
 from sqlalchemy import create_engine
+
+
+def _build_postgres_url() -> str:
+    """Build Postgres URL from env vars, with a local-safe default for dev."""
+    direct_url = os.environ.get("POSTGRES_URL")
+    if direct_url:
+        return direct_url
+
+    host = os.environ.get("POSTGRES_HOST", "postgres")
+    port = os.environ.get("POSTGRES_PORT", "5432")
+    db = os.environ.get("POSTGRES_DB", "airflow_reddit")
+    user = os.environ.get("POSTGRES_USER", "postgres")
+    password = os.environ.get("POSTGRES_PASSWORD", "postgres")
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
+
+
+def _fetch_reddit_page(url: str, headers: dict, params: dict, retries: int = 3, timeout: int = 20):
+    """Fetch a Reddit page with simple retry/backoff for transient failures."""
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=timeout)
+            response.raise_for_status()
+            return response
+        except requests.exceptions.RequestException as exc:
+            if attempt == retries:
+                logging.error(f"Failed to fetch data from Reddit after {retries} attempts: {exc}")
+                raise
+            wait_seconds = attempt * 2
+            logging.warning(
+                f"Reddit request failed (attempt {attempt}/{retries}): {exc}. "
+                f"Retrying in {wait_seconds}s..."
+            )
+            time.sleep(wait_seconds)
 
 def extract_reddit_data_scraping(subreddit, time_filter='day', limit=100, max_posts=100):
 
     url = "https://www.reddit.com/r/{subreddit}/top.json"
     
     # Reddit-approved format: <platform>:<app ID>:<version> (by /u/<username>)
-    headers = {'User-Agent': 'python:airflow_reddit_etl:v1.0 (by /u/your_reddit_username)'}
+    user_agent = os.environ.get(
+        "REDDIT_USER_AGENT",
+        "python:airflow_reddit_etl:v1.0 (by /u/your_reddit_username)",
+    )
+    headers = {'User-Agent': user_agent}
     
     logging.info(
         f"Starting extraction for subreddit: r/{subreddit} "
@@ -32,12 +70,13 @@ def extract_reddit_data_scraping(subreddit, time_filter='day', limit=100, max_po
         if after:
             params["after"] = after
 
-        try:
-            response = requests.get(url.format(subreddit=subreddit), headers=headers, params=params)
-            response.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Failed to fetch data from Reddit: {e}")
-            raise
+        response = _fetch_reddit_page(
+            url=url.format(subreddit=subreddit),
+            headers=headers,
+            params=params,
+            retries=int(os.environ.get("REDDIT_HTTP_RETRIES", "3")),
+            timeout=int(os.environ.get("REDDIT_HTTP_TIMEOUT", "20")),
+        )
 
         data = response.json()
         posts = data.get('data', {}).get('children', [])
@@ -83,18 +122,33 @@ def transform_reddit_data(data):
 
     logging.info(f"Starting transformation for {len(df)} rows...")
 
+    # Ensure expected columns exist even if Reddit payload is partial.
+    expected_columns = [
+        'id', 'title', 'text', 'score', 'num_comments', 'author', 'created_utc',
+        'url', 'upvote_ratio', 'over_18', 'edited', 'spoiler', 'stickied', 'subreddit'
+    ]
+    for col in expected_columns:
+        if col not in df.columns:
+            df[col] = None
+
     # 1. Convert timestamp to readable date
-    df['created_utc'] = pd.to_datetime(df['created_utc'], unit='s')
+    df['created_utc'] = pd.to_datetime(df['created_utc'], unit='s', errors='coerce')
 
     # 2. Ensure types are correct (Very important for AWS Glue/Athena)
-    df['over_18'] = df['over_18'].astype(bool)
-    df['author'] = df['author'].astype(str)
-    df['title'] = df['title'].astype(str)
+    df['score'] = pd.to_numeric(df['score'], errors='coerce').fillna(0).astype(int)
+    df['num_comments'] = pd.to_numeric(df['num_comments'], errors='coerce').fillna(0).astype(int)
+    df['upvote_ratio'] = pd.to_numeric(df['upvote_ratio'], errors='coerce').fillna(0.0)
+    df['over_18'] = df['over_18'].apply(lambda x: bool(x) if pd.notna(x) else False).astype(bool)
+    df['author'] = df['author'].fillna('unknown').astype(str)
+    df['title'] = df['title'].fillna('').astype(str)
     
     # 3. Handle the 'edited' column
     # Reddit sometimes returns a timestamp for edited, or 'False'. 
     # We convert it to a boolean to keep the schema simple.
-    df['edited'] = df['edited'].apply(lambda x: x if isinstance(x, bool) else True)
+    df['edited'] = df['edited'].apply(lambda x: x if isinstance(x, bool) else bool(x))
+
+    df['spoiler'] = df['spoiler'].apply(lambda x: bool(x) if pd.notna(x) else False).astype(bool)
+    df['stickied'] = df['stickied'].apply(lambda x: bool(x) if pd.notna(x) else False).astype(bool)
 
     # 4. Fill missing text with empty strings
     df['text'] = df['text'].fillna('')
@@ -108,7 +162,7 @@ def load_data_to_csv(data: pd.DataFrame, file_path: str):
     
     # NEW CODE: Check if the folder exists, and create it if it doesn't!
     directory = os.path.dirname(file_path)
-    if not os.path.exists(directory):
+    if directory and not os.path.exists(directory):
         os.makedirs(directory)
         logging.info(f"Created missing directory: {directory}")
 
@@ -166,12 +220,12 @@ def load_latest_bronze_parquet_to_postgres(table_name: str = "reddit_gold") -> s
     if not parquet_files:
         raise FileNotFoundError(f"No parquet files found in s3://{bucket}/{prefix}")
 
-    latest_parquet = max(parquet_files)
+    latest_parquet = max(parquet_files, key=lambda p: fs.info(p).get("LastModified", ""))
     logging.info(f"Loading latest bronze parquet: {latest_parquet}")
 
     df = pd.read_parquet(latest_parquet, filesystem=fs)
 
-    engine = create_engine("postgresql+psycopg2://postgres:postgres@postgres:5432/airflow_reddit")
+    engine = create_engine(_build_postgres_url())
     try:
         df.to_sql(table_name, engine, if_exists="replace", index=False, method="multi", chunksize=5000)
     finally:
