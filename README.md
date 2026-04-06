@@ -267,6 +267,12 @@ This screenshot confirms the production DAG path and successful run states acros
 
 This screenshot confirms Bronze lakehouse persistence in MinIO (`bronze/reddit/reddit_*.parquet`), matching the documented storage architecture.
 
+### Metadata Layer Evidence
+
+![Metadata Layer](assets/linkedin/exports/metadata.png)
+
+This screenshot highlights metadata visibility for the platform layer and complements the DAG and storage runtime evidence.
+
 ---
 
 ## 🧱 Enterprise Features (Implemented)
