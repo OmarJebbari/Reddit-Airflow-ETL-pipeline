@@ -398,20 +398,6 @@ docker-compose up -d
 
 ---
 
-## 📈 Future Enhancements
-
-- [ ] **Azure Blob Storage Integration** - Upload CSVs to data lake
-- [ ] **Azure SQL Database** - Store transformed data in relational database
-- [ ] **Advanced Analytics** - SQL transformations on Azure SQL Database
-- [ ] **Monitoring & Alerts** - Azure Application Insights integration
-- [ ] **Multi-Subreddit Support** - Parallel extraction
-- [ ] **Incremental Loading** - Delta updates to reduce redundancy
-- [ ] **PRAW Integration** - Optional: Switch to official Reddit API wrapper
-- [ ] **Containerized Testing** - Pytest in Docker
-- [ ] **Secrets Management** - Vault or Docker secrets
-
----
-
 ## 📝 Logging
 
 All logs are stored in the `logs/` directory with structure:
