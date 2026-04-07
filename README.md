@@ -674,7 +674,7 @@ Contributions are welcome! Please:
 
 For issues, questions, or suggestions:
 
-- **Open an Issue** onjebbari GitHub
+- **Open an Issue** OmarJebbari GitHub
 - **Email:** jebbariomar1@gmail.com
 - **Discussions:** GitHub Discussions tab
 
