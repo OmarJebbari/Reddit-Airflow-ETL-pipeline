@@ -654,7 +654,12 @@ This project is open source and available under the **MIT License**.
 
 **Omar Jebbari**  
 Data Engineer | ETL Specialist  
-[GitHub](https://github.com/OmarJebbari) | [LinkedIn](https://www.linkedin.com/in/omar-jebbari-00b30b269/)
+
+- GitHub: [@OmarJebbari](https://github.com/OmarJebbari)
+- LinkedIn: [OMAR JEBBARI](https://www.linkedin.com/in/omar-jebbari-00b30b269/)
+
+---
+
 
 ---
 
