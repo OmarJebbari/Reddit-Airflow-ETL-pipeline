@@ -4,7 +4,7 @@ A scalable, production-ready **Extract-Transform-Load (ETL) pipeline** that inge
 
 ---
 
-## 🎯 Project Overview
+##  🎯  Project Overview
 
 This project demonstrates enterprise-grade data engineering practices by:
 
@@ -18,7 +18,7 @@ This project demonstrates enterprise-grade data engineering practices by:
 
 ---
 
-## 🏗️ Architecture
+##  🏗️  Architecture
 
 ```mermaid
 %%{init: {
@@ -117,7 +117,7 @@ Visual analysis:
 
 ---
 
-## 🔄 Data Flow
+##  🔄  Data Flow
 
 ```mermaid
 %%{init: {
@@ -275,7 +275,7 @@ This screenshot highlights metadata visibility for the platform layer and comple
 
 ---
 
-## 🧱 Enterprise Features (Implemented)
+##  🧱  Enterprise Features (Implemented)
 
 - **Data Quality:** Great Expectations validation on Bronze parquet before promotion
 - **Transformations:** dbt-core Gold models running via Airflow
@@ -286,7 +286,7 @@ This screenshot highlights metadata visibility for the platform layer and comple
 
 ---
 
-## 📋 Prerequisites
+##  📋  Prerequisites
 
 Before you begin, ensure you have:
 
@@ -297,7 +297,7 @@ Before you begin, ensure you have:
 
 ---
 
-## 🚀 Quick Start
+##  🚀  Quick Start
 
 ### 1. Clone the Repository
 
@@ -363,7 +363,7 @@ ls -lh data/output/
 
 ---
 
-## 📁 Project Structure
+##  📁  Project Structure
 
 ```
 Reddit-Airflow-ETL-Pipeline/
@@ -402,7 +402,7 @@ Reddit-Airflow-ETL-Pipeline/
 
 ---
 
-## ⚙️ Configuration
+##  ⚙️  Configuration
 
 ### `config/config.conf`
 
@@ -433,7 +433,7 @@ MINIO_BRONZE_PREFIX=reddit
 
 ---
 
-## 📊 Data Schema
+##  📊  Data Schema
 
 The extracted and transformed data includes:
 
@@ -458,7 +458,7 @@ The extracted and transformed data includes:
 
 ---
 
-## 🔧 Development
+##  🔧  Development
 
 ### Local Development Setup
 
@@ -499,7 +499,7 @@ docker-compose logs -f scheduler
 
 ---
 
-## 📦 Technologies Used
+##  📦   Technologies Used
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
@@ -518,7 +518,7 @@ docker-compose logs -f scheduler
 
 ---
 
-## 🎯 DAG Specifications
+##  🎯  DAG Specifications
 
 **DAG ID:** `elt_reddit_pipeline`
 
@@ -556,7 +556,7 @@ docker-compose logs -f scheduler
 
 ---
 
-## 🐳 Docker Compose Services
+##  🐳  Docker Compose Services
 
 ```yaml
 Services:
@@ -579,7 +579,7 @@ docker-compose up -d postgres redis minio airflow-webserver airflow-scheduler ai
 
 ---
 
-## 🚨 Troubleshooting
+##  🚨  Troubleshooting
 
 ### Service Won't Start
 
@@ -609,7 +609,7 @@ docker-compose up -d
 
 ---
 
-## 📝 Logging
+##  📝  Logging
 
 All logs are stored in the `logs/` directory with structure:
 
@@ -634,7 +634,7 @@ logger.info("Pipeline started")
 
 ---
 
-## 🔐 Security Best Practices
+##  🔐  Security Best Practices
 
 1. **Never commit secrets** - Use `airflow.env` and `.gitignore`
 2. **Rotate credentials** - Update PostgreSQL password in production
@@ -644,13 +644,13 @@ logger.info("Pipeline started")
 
 ---
 
-## 📄 License
+##  📄  License
 
 This project is open source and available under the **MIT License**.
 
 ---
 
-## 👤 Author
+##  👤  Author
 
 **Omar Jebbari**  
 Data Engineer | ETL Specialist  
@@ -663,7 +663,7 @@ Data Engineer | ETL Specialist
 
 ---
 
-## 🤝 Contributing
+##  🤝  Contributing
 
 Contributions are welcome! Please:
 
@@ -675,7 +675,7 @@ Contributions are welcome! Please:
 
 ---
 
-## 📞 Support
+##  📞  Support
 
 For issues, questions, or suggestions:
 
@@ -685,7 +685,7 @@ For issues, questions, or suggestions:
 
 ---
 
-## 📚 References
+##  📚  References
 
 - [Apache Airflow Documentation](https://airflow.apache.org/docs/)
 - [Reddit JSON API Endpoint](https://www.reddit.com/dev/api#GET_top) - Web scraping endpoint
